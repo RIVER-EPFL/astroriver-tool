@@ -94,7 +94,11 @@ fn view(state: &AppState) -> Element<Message> {
                 .spacing(10),
                 row![
                     horizontal_space(),
-                    button("Login").on_press(Message::Login),
+                    if state.login_token.is_some() {
+                        button("Logout").on_press(Message::Logout)
+                    } else {
+                        button("Login").on_press(Message::Login)
+                    },
                     horizontal_space(),
                 ]
                 .spacing(10),
