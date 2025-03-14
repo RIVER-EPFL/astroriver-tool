@@ -23,14 +23,6 @@ fn extract_jwt_payload(token: &str) -> Result<Claims, Box<dyn Error>> {
 }
 fn update(state: &mut AppState, message: Message) -> iced::Task<Message> {
     match message {
-        Message::Increment => {
-            state.counter.value += 1;
-            Task::none()
-        }
-        Message::Multiply => {
-            state.counter.value *= 2;
-            Task::none()
-        }
         Message::Login => {
             state.login_status = LoginStatus::LoggingIn;
             Task::perform(auth::login_flow(), Message::LoginCompleted)

@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Increment,
-    Multiply,
     Login,
     LoginCompleted(Result<String, String>),
     Logout,
@@ -19,13 +17,7 @@ pub enum Page {
 }
 
 #[derive(Default)]
-pub struct Counter {
-    pub value: u64,
-}
-
-#[derive(Default)]
 pub struct AppState {
-    pub counter: Counter,
     pub login_token: Option<String>,
     pub login_status: LoginStatus,
     pub login_payload: Option<Claims>,

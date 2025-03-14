@@ -1,4 +1,4 @@
-use crate::common::models::{AppState, Message};
+use crate::common::models::{AppState, LoginStatus, Message};
 use iced::widget::{button, column, container, horizontal_space, row, text};
 use iced::{Element, Fill};
 
@@ -24,19 +24,6 @@ pub fn view_main(state: &AppState) -> Element<Message> {
             .spacing(10),
             row![
                 horizontal_space(),
-                text(format!("Value: {}", state.counter.value)).size(20),
-                horizontal_space(),
-            ]
-            .spacing(10),
-            row![
-                horizontal_space(),
-                button("Increment").on_press(Message::Increment),
-                button("Multiply").on_press(Message::Multiply),
-                horizontal_space(),
-            ]
-            .spacing(10),
-            row![
-                horizontal_space(),
                 if state.login_token.is_some() {
                     let user_logged_in_identifier = state
                         .login_payload
@@ -53,6 +40,15 @@ pub fn view_main(state: &AppState) -> Element<Message> {
                                 shadow: iced::Shadow::default(),
                             }
                         })
+                } else if state.login_status == LoginStatus::LoggingIn {
+                    button("Logging in").style(|_, _| {
+                        iced::widget::button::Style {
+                            background: Some(iced::Color::from_rgb8(0xFF, 0xFF, 0x00).into()), // Yellow
+                            text_color: iced::Color::BLACK,
+                            border: iced::Border::default(),
+                            shadow: iced::Shadow::default(),
+                        }
+                    })
                 } else {
                     button("Login").on_press(Message::Login).style(|_, _| {
                         iced::widget::button::Style {
