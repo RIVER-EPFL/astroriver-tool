@@ -5,10 +5,14 @@ edition = "2024"
 description = "Fieldwork tool to coordinate offline functionality with the astroriver platform"
 
 [dependencies]
+base64 = "0.22.1"
 dotenvy = "0.15.7"
 iced = { version = "0.13.1", features = ["tokio", "canvas"] }
+jsonwebtoken = "9.3.1"
+jwt-simple = "0.12.12"
 oauth2 = { version = "5.0.0", features = ["reqwest-blocking"] }
 open = "5.3.2"
 serde = "1.0.219"
+serde_json = "1.0.140"
 tokio = { version = "1.44.1", features = ["full"] }
 url = "2.5.4"

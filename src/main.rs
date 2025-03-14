@@ -3,6 +3,10 @@ mod config;
 
 use iced::widget::{button, column, container, horizontal_space, row, text};
 use iced::{Element, Fill, Task};
+// use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
+// use jwt_simple::prelude::*;
+use base64::Engine;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 
 #[derive(Debug, Clone)]
@@ -23,12 +27,50 @@ struct Counter {
 struct AppState {
     counter: Counter,
     login_token: Option<String>,
-    is_logging_in: bool,
+    login_status: LoginStatus,
+    login_payload: Option<Claims>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoginStatus {
+    LoggedOut,
+    LoggingIn,
+    LoggedIn,
+}
+
+impl Default for LoginStatus {
+    fn default() -> Self {
+        LoginStatus::LoggedOut
+    }
 }
 
 #[tokio::main]
 async fn main() -> iced::Result {
     iced::run("AstroRiver", update, view)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    exp: usize,
+    iat: usize,
+    auth_time: usize,
+    sub: String,
+    email: String,
+    family_name: String,
+    given_name: String,
+    preferred_username: String,
+    scope: String,
+    // Add other claims as needed
+}
+
+fn extract_jwt_payload(token: &str) -> Result<Claims, Box<dyn Error>> {
+    // Split by . and decode the base64 payload
+    use base64::prelude::*;
+    let payload = token.split('.').nth(1).ok_or("Invalid JWT")?;
+    let payload = BASE64_URL_SAFE_NO_PAD.decode(payload.as_bytes())?;
+    let payload = String::from_utf8(payload)?;
+    let claims: Claims = serde_json::from_str(&payload)?;
+    Ok(claims)
 }
 
 fn update(state: &mut AppState, message: Message) -> iced::Task<Message> {
@@ -42,31 +84,34 @@ fn update(state: &mut AppState, message: Message) -> iced::Task<Message> {
             Task::none()
         }
         Message::Login => {
-            state.is_logging_in = true;
+            state.login_status = LoginStatus::LoggingIn;
             Task::perform(auth::login_flow(), Message::LoginCompleted)
         }
-        Message::LoginCompleted(result) => {
-            state.is_logging_in = false;
-            match result {
-                Ok(token) => {
-                    state.login_token = Some(token.clone());
-                    println!("Login successful: {}", token);
-                    Task::none()
-                }
-                Err(e) => {
-                    eprintln!("Login failed: {:?}", e);
-                    state.login_token = None;
-                    Task::none()
-                }
+        Message::LoginCompleted(result) => match result {
+            Ok(token) => {
+                state.login_token = Some(token.clone());
+                state.login_status = LoginStatus::LoggedIn;
+                state.login_payload = extract_jwt_payload(&token)
+                    .map_err(|e| eprintln!("Failed to extract JWT: {:?}", e))
+                    .ok();
+                // state.login_payload = token_payload.ok();
+
+                Task::none()
             }
-        }
+            Err(e) => {
+                eprintln!("Login failed: {:?}", e);
+                state.login_token = None;
+                state.login_status = LoginStatus::LoggedOut;
+                Task::none()
+            }
+        },
         Message::Logout => {
             state.login_token = None;
+            state.login_status = LoginStatus::LoggedOut;
             Task::none()
         }
     }
 }
-
 fn view(state: &AppState) -> Element<Message> {
     container(
         column![
@@ -95,7 +140,12 @@ fn view(state: &AppState) -> Element<Message> {
                 row![
                     horizontal_space(),
                     if state.login_token.is_some() {
-                        button("Logout").on_press(Message::Logout)
+                        let user_logged_in_identifier = state
+                            .login_payload
+                            .as_ref()
+                            .map(|claims| claims.email.as_str())
+                            .unwrap_or("Logout");
+                        button(user_logged_in_identifier).on_press(Message::Logout)
                     } else {
                         button("Login").on_press(Message::Login)
                     },
