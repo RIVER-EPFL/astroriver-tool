@@ -2,7 +2,7 @@ mod auth;
 mod config;
 
 use iced::widget::{button, column, container, horizontal_space, row, text};
-use iced::{Element, Fill};
+use iced::{Element, Fill, Task};
 
 #[derive(Debug, Clone)]
 enum Message {
@@ -24,14 +24,8 @@ struct AppState {
     is_logging_in: bool,
 }
 
-pub fn main() -> iced::Result {
-    // let token: Option<String> = match auth::device_flow_token() {
-    //     Ok(token) => Some(token),
-    //     Err(e) => {
-    //         eprintln!("Error: {}", e);
-    //         None
-    //     }
-    // };
+#[tokio::main]
+async fn main() -> iced::Result {
     iced::run("AstroRiver", update, view)
 }
 
@@ -44,16 +38,21 @@ fn update(state: &mut AppState, message: Message) {
             state.counter.value *= 2;
         }
         Message::Login => {
-            let token: Option<String> = match auth::device_flow_token() {
-                Ok(token) => Some(token),
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    None
-                }
-            };
+            let token = Task::perform(auth::device_flow_token(), |token| Message::Login);
+            state.is_logging_in = true;
+            println!("Token is: {:?}", state.login_token);
+            // println!("Token is: {:?}", token);
+            // let token: Option<String> = match auth::device_flow_token().await {
+            //     Ok(token) => Some(token),
+            //     Err(e) => {
+            //         eprintln!("Error: {}", e);
+            //         None
+            //     }
+            // };
         }
-        Message::Logout => {}
-        _ => {}
+        Message::Logout => {
+            state.login_token = None;
+        }
     }
 }
 

@@ -6,12 +6,14 @@ use oauth2::{
     DeviceAuthorizationUrl, EmptyExtraDeviceAuthorizationFields, PkceCodeChallenge, RedirectUrl,
     Scope, StandardDeviceAuthorizationResponse, TokenResponse, TokenUrl,
 };
+use oauth2::{DeviceCodeErrorResponseType, RequestTokenError};
 use std::error::Error;
 use std::thread::sleep;
 use std::time::Duration;
 use url::Url;
 
-pub(super) fn device_flow_token() -> Result<String, Box<dyn Error>> {
+pub(super) async fn device_flow_token() -> Result<String, Box<dyn std::error::Error + Send + Sync>>
+{
     // Setup URLs and client as before
 
     let config = Config::from_env();
@@ -42,7 +44,7 @@ pub(super) fn device_flow_token() -> Result<String, Box<dyn Error>> {
         .set_token_uri(token_url)
         .set_device_authorization_url(device_auth_url);
 
-    let http_client = reqwest::blocking::ClientBuilder::new()
+    let http_client = reqwest::ClientBuilder::new()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("Client should build");
@@ -51,7 +53,8 @@ pub(super) fn device_flow_token() -> Result<String, Box<dyn Error>> {
     let details: StandardDeviceAuthorizationResponse = client
         .exchange_device_code()
         .add_scope(Scope::new("read".to_string()))
-        .request(&http_client)?;
+        .request_async(&http_client)
+        .await?;
 
     // Build the verification URL properly with URL encoding.
     let mut verification_url = Url::parse(details.verification_uri().as_str())?;
@@ -67,19 +70,31 @@ pub(super) fn device_flow_token() -> Result<String, Box<dyn Error>> {
 
     // Now we poll for the token
     println!("Waiting for user to authenticate...");
+
     loop {
-        match client.exchange_device_access_token(&details).request(
-            &http_client,
-            std::thread::sleep,
-            None,
-        ) {
+        match client
+            .exchange_device_access_token(&details)
+            .request_async(
+                &http_client,
+                |duration| async move {
+                    tokio::time::sleep(duration).await;
+                },
+                None,
+            )
+            .await
+        {
             Ok(token) => {
                 println!("Access Token: {}", token.access_token().secret());
                 return Ok(token.access_token().secret().to_owned());
             }
-            Err(err) => {
-                println!("Still waiting... ({})", err);
-                sleep(Duration::from_secs(5)); // Wait before retrying
+            Err(RequestTokenError::ServerResponse(e))
+                if e.error() == &oauth2::DeviceCodeErrorResponseType::AuthorizationPending =>
+            {
+                // Still waiting; retry after sleeping
+                continue;
+            }
+            Err(e) => {
+                return Err(e.into());
             }
         }
     }
