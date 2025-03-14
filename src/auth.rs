@@ -6,7 +6,6 @@ use oauth2::{
     TokenResponse, TokenUrl,
 };
 use oauth2::{DeviceCodeErrorResponseType, RequestTokenError};
-use std::error::Error;
 
 pub async fn start_device_auth_flow()
 -> Result<StandardDeviceAuthorizationResponse, Box<dyn std::error::Error + Send + Sync>> {
