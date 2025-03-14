@@ -3,12 +3,14 @@ mod config;
 
 use iced::widget::{button, column, container, horizontal_space, row, text};
 use iced::{Element, Fill, Task};
+use std::error::Error;
 
 #[derive(Debug, Clone)]
-enum Message {
+pub enum Message {
     Increment,
     Multiply,
     Login,
+    LoginCompleted(Result<String, String>),
     Logout,
 }
 
@@ -29,29 +31,38 @@ async fn main() -> iced::Result {
     iced::run("AstroRiver", update, view)
 }
 
-fn update(state: &mut AppState, message: Message) {
+fn update(state: &mut AppState, message: Message) -> iced::Task<Message> {
     match message {
         Message::Increment => {
             state.counter.value += 1;
+            Task::none()
         }
         Message::Multiply => {
             state.counter.value *= 2;
+            Task::none()
         }
         Message::Login => {
-            let token = Task::perform(auth::device_flow_token(), |token| Message::Login);
             state.is_logging_in = true;
-            println!("Token is: {:?}", state.login_token);
-            // println!("Token is: {:?}", token);
-            // let token: Option<String> = match auth::device_flow_token().await {
-            //     Ok(token) => Some(token),
-            //     Err(e) => {
-            //         eprintln!("Error: {}", e);
-            //         None
-            //     }
-            // };
+            Task::perform(auth::login_flow(), Message::LoginCompleted)
+        }
+        Message::LoginCompleted(result) => {
+            state.is_logging_in = false;
+            match result {
+                Ok(token) => {
+                    state.login_token = Some(token.clone());
+                    println!("Login successful: {}", token);
+                    Task::none()
+                }
+                Err(e) => {
+                    eprintln!("Login failed: {:?}", e);
+                    state.login_token = None;
+                    Task::none()
+                }
+            }
         }
         Message::Logout => {
             state.login_token = None;
+            Task::none()
         }
     }
 }
